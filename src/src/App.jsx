@@ -6,6 +6,8 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import ReportLost from './pages/ReportLost';
 import ReportFound from './pages/ReportFound';
+import EditItem from './pages/EditItem';
+import ItemDetail from './pages/ItemDetail';
 
 const PrivateRoute = ({ children }) => {
   const token = localStorage.getItem('token');
@@ -29,6 +31,8 @@ function App() {
           <Route path="report-found" element={
             <PrivateRoute><ReportFound /></PrivateRoute>
           } />
+          <Route path="items/:id" element={<PrivateRoute><ItemDetail /></PrivateRoute>} />
+          <Route path="items/:id/edit" element={<PrivateRoute><EditItem /></PrivateRoute>} />
         </Route>
       </Routes>
     </BrowserRouter>

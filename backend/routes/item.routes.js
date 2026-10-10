@@ -9,8 +9,11 @@ router.post('/found', authMiddleware, upload.single('image'), itemController.rep
 
 router.get('/lost', itemController.getLostItems);
 router.get('/my-items', authMiddleware, itemController.getMyItems);
+router.get('/my-matches', authMiddleware, itemController.getMyMatches);
 
+router.get('/:id', authMiddleware, itemController.getItem);
 router.put('/:id', authMiddleware, upload.single('image'), itemController.updateItem);
+router.patch('/:id/archive', authMiddleware, itemController.archiveItem);
 router.delete('/:id', authMiddleware, itemController.deleteItem);
 
 module.exports = router;

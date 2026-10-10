@@ -6,6 +6,8 @@ export default function ReportFound() {
   const [formData, setFormData] = useState({
     title: '', category: '', location: '', dateFound: '', description: ''
   });
+  const [image, setImage] = useState(null);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -15,10 +17,14 @@ export default function ReportFound() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/items/found', formData);
+      setError('');
+      const payload = new FormData();
+      Object.entries(formData).forEach(([key, value]) => payload.append(key, value));
+      if (image) payload.append('image', image);
+      await api.post('/items/found', payload);
       navigate('/dashboard');
     } catch (err) {
-      alert('Failed to report found item');
+      setError(err.response?.data?.message || 'Failed to report found item.');
     }
   };
 
@@ -52,6 +58,11 @@ export default function ReportFound() {
           <label className="block text-sm font-medium mb-1">Description (Be Specific!)</label>
           <textarea name="description" rows="4" className="w-full border border-gray-300 p-2 bg-white" onChange={handleChange} required></textarea>
         </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Image (optional, JPEG, PNG, or WebP; 5 MB max)</label>
+          <input type="file" accept="image/jpeg,image/png,image/webp" className="w-full border border-gray-300 p-2 bg-white" onChange={(e) => setImage(e.target.files?.[0] || null)} />
+        </div>
+        {error && <p className="text-red-700 text-sm" role="alert">{error}</p>}
         <button type="submit" className="bg-brand text-white px-6 py-2 font-medium">Securely Report Found Item</button>
       </form>
     </div>

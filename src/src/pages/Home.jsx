@@ -3,14 +3,15 @@ import api from '../api';
 
 export default function Home() {
   const [items, setItems] = useState([]);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchPublicItems = async () => {
       try {
         const res = await api.get('/items/lost');
-        setItems(res.data);
+        setItems(res.data.items);
       } catch (err) {
-        console.error(err);
+        setError('Community reports are temporarily unavailable. Please try again shortly.');
       }
     };
     fetchPublicItems();
@@ -20,8 +21,8 @@ export default function Home() {
     <div>
       <h2 className="text-3xl font-bold mb-2">Community Lost & Found</h2>
       <p className="text-gray-600 mb-8">Browse publicly listed lost items. Found items are kept private for security.</p>
-      
-      {items.length === 0 ? (
+
+      {error ? <p className="text-red-700" role="alert">{error}</p> : items.length === 0 ? (
         <p className="text-gray-500">No public lost items reported at this time.</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
