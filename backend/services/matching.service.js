@@ -78,9 +78,9 @@ function scoreItems(lostItem, foundItem, config = CONFIG) {
 
 async function runMatchingForItem(itemId, { ItemModel = Item, MatchModel = Match } = {}) {
   const item = await ItemModel.findById(itemId).select('+imageHash');
-  if (!item || item.status !== 'active') return [];
+  if (!item || item.status !== 'active' || item.moderationState === 'held') return [];
   const oppositeType = item.type === 'lost' ? 'found' : 'lost';
-  const candidates = await ItemModel.find({ type: oppositeType, status: 'active' }).select('+imageHash');
+  const candidates = await ItemModel.find({ type: oppositeType, status: 'active', moderationState: { $ne: 'held' } }).select('+imageHash');
   const results = [];
   for (const candidate of candidates) {
     const lostItem = item.type === 'lost' ? item : candidate;

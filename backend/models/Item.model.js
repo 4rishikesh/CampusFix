@@ -12,6 +12,8 @@ const itemSchema = new mongoose.Schema({
   imageHash: { type: String, select: false, match: /^[0-9a-f]{16}$/ },
   visibility: { type: String, enum: ['public', 'private'], default: 'public' },
   status: { type: String, enum: ['active', 'resolved', 'archived'], default: 'active' },
+  // Held reports are retained as moderation evidence but are not public or matchable.
+  moderationState: { type: String, enum: ['clear', 'held'], default: 'clear' },
   type: { type: String, enum: ['lost', 'found'], default: 'lost' },
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
@@ -19,5 +21,6 @@ const itemSchema = new mongoose.Schema({
 itemSchema.index({ type: 1, status: 1, category: 1 });
 itemSchema.index({ user: 1, createdAt: -1 });
 itemSchema.index({ type: 1, visibility: 1, status: 1, createdAt: -1 });
+itemSchema.index({ moderationState: 1, type: 1, status: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Item', itemSchema);

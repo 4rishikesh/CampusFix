@@ -8,33 +8,40 @@ import ReportLost from './pages/ReportLost';
 import ReportFound from './pages/ReportFound';
 import EditItem from './pages/EditItem';
 import ItemDetail from './pages/ItemDetail';
+import Admin from './pages/Admin';
+import { AuthProvider } from './auth/AuthContext';
+import { useAuth } from './auth/context';
 
 const PrivateRoute = ({ children }) => {
-  const token = localStorage.getItem('token');
-  return token ? children : <Navigate to="/login" />;
+  const { user, loading } = useAuth();
+  if (loading) return <p className="text-gray-600">Checking your session…</p>;
+  return user ? children : <Navigate to="/login" replace />;
+};
+
+const AdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return <p className="text-gray-600">Checking your session…</p>;
+  return user?.role === 'admin' ? children : <Navigate to="/dashboard" replace />;
 };
 
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Home />} />
-          <Route path="login" element={<Login />} />
-          <Route path="register" element={<Register />} />
-          <Route path="dashboard" element={
-            <PrivateRoute><Dashboard /></PrivateRoute>
-          } />
-          <Route path="report-lost" element={
-            <PrivateRoute><ReportLost /></PrivateRoute>
-          } />
-          <Route path="report-found" element={
-            <PrivateRoute><ReportFound /></PrivateRoute>
-          } />
-          <Route path="items/:id" element={<PrivateRoute><ItemDetail /></PrivateRoute>} />
-          <Route path="items/:id/edit" element={<PrivateRoute><EditItem /></PrivateRoute>} />
-        </Route>
-      </Routes>
+      <AuthProvider>
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Home />} />
+            <Route path="login" element={<Login />} />
+            <Route path="register" element={<Register />} />
+            <Route path="dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+            <Route path="report-lost" element={<PrivateRoute><ReportLost /></PrivateRoute>} />
+            <Route path="report-found" element={<PrivateRoute><ReportFound /></PrivateRoute>} />
+            <Route path="items/:id" element={<PrivateRoute><ItemDetail /></PrivateRoute>} />
+            <Route path="items/:id/edit" element={<PrivateRoute><EditItem /></PrivateRoute>} />
+            <Route path="admin" element={<AdminRoute><Admin /></AdminRoute>} />
+          </Route>
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   );
 }

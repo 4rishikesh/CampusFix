@@ -1,11 +1,12 @@
 import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../auth/context';
 
 export default function Layout() {
   const navigate = useNavigate();
-  const token = localStorage.getItem('token');
+  const { user, clearSession } = useAuth();
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
+    clearSession();
     navigate('/login');
   };
 
@@ -14,11 +15,12 @@ export default function Layout() {
       <header className="p-4 border-b border-gray-200 flex justify-between items-center max-w-6xl mx-auto w-full">
         <Link to="/" className="text-xl font-bold text-brand">CampusFix</Link>
         <nav className="flex space-x-6">
-          {token ? (
+          {user ? (
             <>
               <Link to="/dashboard" className="text-sm font-medium hover:underline">Dashboard</Link>
               <Link to="/report-lost" className="text-sm font-medium hover:underline">Report Lost</Link>
               <Link to="/report-found" className="text-sm font-medium hover:underline">Report Found</Link>
+              {user.role === 'admin' && <Link to="/admin" className="text-sm font-medium hover:underline">Administration</Link>}
               <button onClick={handleLogout} className="text-sm font-medium hover:underline">Logout</button>
             </>
           ) : (

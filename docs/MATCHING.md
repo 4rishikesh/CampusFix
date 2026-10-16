@@ -4,9 +4,9 @@ CampusFix uses a deterministic, rule-based fuzzy matching engine. It is not an A
 
 ## Eligibility and execution
 
-Creating or materially editing an active lost or found report evaluates that report against active reports of the opposite type only. Private reports are intentionally included in this internal operation, but are not exposed by the public lost-item feed. Archived reports are excluded.
+Creating or materially editing an active lost or found report evaluates that report against active reports of the opposite type only. Private reports are intentionally included in this internal operation, but are not exposed by the public lost-item feed. Archived reports and administrator-held reports are excluded.
 
-Each eligible lost/found pair has at most one `Match` record because `{ lostItem, foundItem }` has a unique index. Subsequent engine runs update its scores instead of creating duplicates. If an automatic candidate later falls below the threshold after an edit, it is marked `dismissed`; reviewed statuses are not overwritten.
+Each eligible lost/found pair has at most one `Match` record because `{ lostItem, foundItem }` has a unique index. Subsequent engine runs update its scores instead of creating duplicates. If an automatic candidate later falls below the threshold after an edit, or either report is held/archived, it is marked `dismissed`; reviewed statuses are not overwritten.
 
 The current implementation performs a bounded MongoDB query after an item is saved. This is suitable for a small campus deployment, but it is O(number of active opposite-type reports) per report. At larger scale, use category/date pre-filtering and move the service call to a durable queue. The service boundary is deliberately separate from notification and chat integrations; no alert or conversation is fabricated by this module.
 

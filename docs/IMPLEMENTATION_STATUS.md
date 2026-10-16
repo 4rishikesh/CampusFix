@@ -9,7 +9,7 @@ CampusFix now has an operational authentication flow, lost-item reporting, priva
 Potential matches are evidence-based leads only. They are not ownership verification and do not expose found reports through the public community feed.
 
 ## Completed work
-
+ 
 ### Week 1 foundation and authentication
 
 - React/Vite frontend and Express/Mongoose backend are in place.

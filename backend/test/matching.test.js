@@ -55,7 +55,7 @@ test('matching service only pairs active opposite types and updates one pair ide
   };
   await runMatchingForItem('lost-1', { ItemModel, MatchModel });
   await runMatchingForItem('lost-1', { ItemModel, MatchModel });
-  assert.deepEqual(candidateFilter, { type: 'found', status: 'active' });
+  assert.deepEqual(candidateFilter, { type: 'found', status: 'active', moderationState: { $ne: 'held' } });
   assert.equal(records.size, 1);
   assert.equal(records.get('lost-1:found-1').status, 'candidate');
 });

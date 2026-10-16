@@ -60,7 +60,9 @@ exports.getLostItems = async (req, res) => {
   try {
     const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
     const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit, 10) || 20));
-    const filter = { type: 'lost', visibility: 'public', status: 'active' };
+    // $ne keeps reports created before moderationState existed compatible while
+    // excluding reports held by an administrator.
+    const filter = { type: 'lost', visibility: 'public', status: 'active', moderationState: { $ne: 'held' } };
     if (req.query.category) filter.category = new RegExp(`^${String(req.query.category).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
     if (req.query.search) {
       const search = String(req.query.search).trim().slice(0, 100);
