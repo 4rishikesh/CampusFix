@@ -1,5 +1,6 @@
 const Item = require('../models/Item.model');
 const Match = require('../models/Match.model');
+const Chat = require('../models/Chat.model');
 const { createPerceptualHash } = require('../services/imageHash.service');
 const { runMatchingForItem } = require('../services/matching.service');
 const { canManageItem, validateItemInput } = require('../services/item.service');
@@ -30,6 +31,10 @@ async function dismissMatchesForItem(itemId) {
   await Match.updateMany(
     { status: 'candidate', $or: [{ lostItem: itemId }, { foundItem: itemId }] },
     { $set: { status: 'dismissed' } }
+  );
+  await Chat.updateMany(
+    { status: 'active', $or: [{ lostItem: itemId }, { foundItem: itemId }] },
+    { $set: { status: 'closed', closedReason: 'Associated report was archived or removed.' } }
   );
 }
 

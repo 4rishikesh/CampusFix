@@ -22,8 +22,31 @@ Every endpoint below requires an authenticated administrator. Responses exclude 
 
 Administrators may also use the existing authorized item-detail endpoint to inspect private reports. Attempts to submit `role`, `isBlocked`, `blockedAt`, `blockedBy`, or `blockReason` during public registration are rejected.
 
+## Secure Communication (Chat)
+
+Each chat room is tied to an active lost/found match candidate between two verified participants.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| POST | `/api/chat/initiate` | Body: `{ "matchId": "…" }`. Initializes or returns the existing chat for a candidate match. |
+| GET | `/api/chat?status=` | Returns conversations for the signed-in user (or all conversations for administrators). |
+| GET | `/api/chat/:id` | Returns authorized conversation details including lost and found report summaries. |
+| GET | `/api/chat/:id/messages` | Returns conversation message history and marks unread messages as read. |
+| POST | `/api/chat/:id/messages` | Body: `{ "content": "…" }`. Sends an authenticated message and dispatches notifications. |
+| POST | `/api/chat/:id/resolve` | Confirms item return, marks both reports as `resolved`, marks match as `confirmed`, and closes the loop. |
+| PATCH | `/api/chat/:id/close` | Body: `{ "reason": "…" }`. Closes the conversation. |
+
+## Notifications and Alerts
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/notifications?unreadOnly=&page=&limit=` | Fetches user notifications and real-time `unreadCount`. |
+| PATCH | `/api/notifications/:id/read` | Marks a specific notification as read. |
+| PATCH | `/api/notifications/read-all` | Marks all notifications for the user as read. |
+| DELETE | `/api/notifications/:id` | Dismisses/deletes a notification. |
+
 ## Blocking lifecycle
 
-Blocking is a backend action. It denies protected API access, including report creation, editing, archiving, deletion, dashboard/profile reads, and other future protected mutations. The current repository has no conversation, message, or notification endpoints; they must use the same authenticated-user middleware when implemented.
+Blocking is a backend action. It denies protected API access, including report creation, editing, archiving, deletion, dashboard/profile reads, chats, and messaging.
 
-Active reports owned by a blocked user are set to `held`. They remain available only to administrators, are excluded from public listings and matching, and have active candidate matches dismissed. Unblocking an account does not republish those reports; an administrator must release, archive, or otherwise review each report.
+Active reports owned by a blocked user are set to `held`. They remain available only to administrators, are excluded from public listings and matching, have active candidate matches dismissed, and close any active chat rooms. Unblocking an account does not republish those reports; an administrator must release, archive, or otherwise review each report.

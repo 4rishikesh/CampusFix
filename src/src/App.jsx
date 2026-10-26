@@ -9,6 +9,9 @@ import ReportFound from './pages/ReportFound';
 import EditItem from './pages/EditItem';
 import ItemDetail from './pages/ItemDetail';
 import Admin from './pages/Admin';
+import Notifications from './pages/Notifications';
+import Chats from './pages/Chats';
+import ChatRoom from './pages/ChatRoom';
 import { AuthProvider } from './auth/AuthContext';
 import { useAuth } from './auth/context';
 
@@ -34,6 +37,9 @@ function App() {
             <Route path="login" element={<Login />} />
             <Route path="register" element={<Register />} />
             <Route path="dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+            <Route path="notifications" element={<PrivateRoute><Notifications /></PrivateRoute>} />
+            <Route path="chats" element={<PrivateRoute><Chats /></PrivateRoute>} />
+            <Route path="chats/:id" element={<PrivateRoute><ChatRoom /></PrivateRoute>} />
             <Route path="report-lost" element={<PrivateRoute><ReportLost /></PrivateRoute>} />
             <Route path="report-found" element={<PrivateRoute><ReportFound /></PrivateRoute>} />
             <Route path="items/:id" element={<PrivateRoute><ItemDetail /></PrivateRoute>} />

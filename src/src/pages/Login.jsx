@@ -17,7 +17,11 @@ export default function Login() {
       startSession(res.data.token, res.data.user);
       navigate(res.data.user.role === 'admin' ? '/admin' : '/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed');
+      if (err.response?.status === 429) {
+        setError('Too many login attempts. Please wait a few moments before trying again.');
+      } else {
+        setError(err.response?.data?.message || 'Invalid email or password.');
+      }
     }
   };
 

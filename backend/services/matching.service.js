@@ -99,13 +99,23 @@ async function runMatchingForItem(itemId, { ItemModel = Item, MatchModel = Match
       { new: true, upsert: true, runValidators: true }
     );
     results.push(match);
+    await publishPotentialMatches([match], { lostItem, foundItem });
   }
   return results;
 }
 
-// Future notification/chat modules can subscribe here.  This intentionally has
-// no side effects until those modules exist.
-async function publishPotentialMatches() { return undefined; }
+async function publishPotentialMatches(matches = [], { lostItem, foundItem } = {}) {
+  try {
+    const { notifyMatch } = require('./notification.service');
+    for (const match of matches) {
+      if (lostItem && foundItem) {
+        await notifyMatch(match, lostItem, foundItem);
+      }
+    }
+  } catch (err) {
+    console.error('Error publishing potential matches:', err);
+  }
+}
 
 module.exports = {
   CONFIG, fieldSimilarity, jaroWinkler, normalizeText, publishPotentialMatches,

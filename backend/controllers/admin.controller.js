@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const User = require('../models/User.model');
 const Item = require('../models/Item.model');
 const Match = require('../models/Match.model');
+const Chat = require('../models/Chat.model');
 const { runMatchingForItem } = require('../services/matching.service');
 
 function pagination(query) {
@@ -43,9 +44,17 @@ async function dismissCandidateMatches(itemIds) {
     { status: 'candidate', $or: [{ lostItem: { $in: itemIds } }, { foundItem: { $in: itemIds } }] },
     { $set: { status: 'dismissed' } }
   );
+  await Chat.updateMany(
+    { status: 'active', $or: [{ lostItem: { $in: itemIds } }, { foundItem: { $in: itemIds } }] },
+    { $set: { status: 'closed', closedReason: 'Associated report was held by moderation.' } }
+  );
 }
 
 async function holdReportsForBlockedUser(userId) {
+  await Chat.updateMany(
+    { participants: userId, status: 'active' },
+    { $set: { status: 'closed', closedReason: 'Participant account was blocked by an administrator.' } }
+  );
   const reports = await Item.find({ user: userId, status: 'active', moderationState: { $ne: 'held' } }).select('_id');
   if (!reports.length) return 0;
   const itemIds = reports.map((report) => report._id);
