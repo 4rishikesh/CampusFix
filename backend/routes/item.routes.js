@@ -7,7 +7,7 @@ const { upload } = require('../middleware/upload.middleware');
 router.post('/lost', authMiddleware, upload.single('image'), itemController.reportLostItem);
 router.post('/found', authMiddleware, upload.single('image'), itemController.reportFoundItem);
 
-router.get('/lost', itemController.getLostItems);
+router.get('/lost', authMiddleware, itemController.getLostItems);
 router.get('/my-items', authMiddleware, itemController.getMyItems);
 router.get('/my-matches', authMiddleware, itemController.getMyMatches);
 

@@ -22,45 +22,43 @@ async function notifyMatch(match, lostItem, foundItem) {
   if (!match || !lostItem || !foundItem) return;
   const similarityPct = Math.round((match.scores?.combined || 0) * 100);
 
-  // Notify lost item owner
+  const saveMatchNotification = (notification) => Notification.findOneAndUpdate(
+    { user: notification.user, relatedMatch: notification.relatedMatch, type: 'match_found' },
+    { $setOnInsert: notification },
+    { upsert: true, new: true }
+  );
+
+  // Notify each owner once for a match. $setOnInsert prevents normal matching
+  // reruns from adding a second alert for the same pair.
   if (lostItem.user) {
-    const existing = await Notification.findOne({
+    await saveMatchNotification({
       user: lostItem.user,
-      relatedMatch: match._id,
-      type: 'match_found'
+      type: 'match_found',
+      title: 'Potential Match Found',
+      message: `A found item "${foundItem.title}" may match your lost "${lostItem.title}" (${similarityPct}% similarity).`,
+      link: '/dashboard',
+      relatedItem: lostItem._id,
+      relatedMatch: match._id
     });
-    if (!existing) {
-      await createNotification({
-        user: lostItem.user,
-        type: 'match_found',
-        title: 'Potential Match Found',
-        message: `A found item "${foundItem.title}" may match your lost "${lostItem.title}" (${similarityPct}% similarity).`,
-        link: '/dashboard',
-        relatedItem: lostItem._id,
-        relatedMatch: match._id
-      });
-    }
   }
 
   // Notify found item owner
   if (foundItem.user && String(foundItem.user) !== String(lostItem.user)) {
-    const existing = await Notification.findOne({
+    await saveMatchNotification({
       user: foundItem.user,
-      relatedMatch: match._id,
-      type: 'match_found'
+      type: 'match_found',
+      title: 'Potential Match Found',
+      message: `A lost report "${lostItem.title}" may match your found item "${foundItem.title}" (${similarityPct}% similarity).`,
+      link: '/dashboard',
+      relatedItem: foundItem._id,
+      relatedMatch: match._id
     });
-    if (!existing) {
-      await createNotification({
-        user: foundItem.user,
-        type: 'match_found',
-        title: 'Potential Match Found',
-        message: `A lost report "${lostItem.title}" may match your found item "${foundItem.title}" (${similarityPct}% similarity).`,
-        link: '/dashboard',
-        relatedItem: foundItem._id,
-        relatedMatch: match._id
-      });
-    }
   }
+}
+
+async function removeMatchNotifications(matchId) {
+  if (!matchId) return;
+  await Notification.deleteMany({ relatedMatch: matchId, type: 'match_found' });
 }
 
 async function notifyChatMessage({ recipientId, senderName, chatId, contentPreview }) {
@@ -89,6 +87,7 @@ async function notifyItemStatus({ userId, itemTitle, newStatus, reason }) {
 
 module.exports = {
   createNotification,
+  removeMatchNotifications,
   notifyMatch,
   notifyChatMessage,
   notifyItemStatus

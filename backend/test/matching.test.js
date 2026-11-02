@@ -18,6 +18,15 @@ test('matches spelling mistakes and rejects unrelated text-only reports', () => 
   assert.equal(scoreItems(lost, unrelated).isMatch, false);
 });
 
+test('never matches unrelated items merely because they share a location or category', () => {
+  const bottle = { ...lost, title: 'Bottle', description: 'Clear water bottle left near the main gate.', category: 'Other', location: 'Main Gate' };
+  const cable = { ...found, title: 'Ethernet Cable', description: 'Blue Ethernet cable found at the main gate.', category: 'Other', location: 'Main Gate' };
+  const result = scoreItems(bottle, cable);
+  assert.equal(result.scores.location, 1);
+  assert.equal(result.isMatch, false);
+  assert.equal(scoreItems(bottle, { ...cable, title: 'Water Bottle', description: 'Clear water bottle found near the main gate.' }).isMatch, true);
+});
+
 test('creates and validates a genuine 64-bit perceptual image hash', async () => {
   const firstImage = await sharp(Buffer.from('<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg"><rect width="64" height="64" fill="white"/><circle cx="16" cy="16" r="12" fill="black"/></svg>')).png().toBuffer();
   const secondImage = await sharp(Buffer.from('<svg width="64" height="64" xmlns="http://www.w3.org/2000/svg"><rect width="64" height="64" fill="white"/><rect x="32" y="32" width="24" height="24" fill="black"/></svg>')).png().toBuffer();

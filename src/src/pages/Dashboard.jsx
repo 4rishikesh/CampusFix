@@ -6,16 +6,18 @@ export default function Dashboard() {
   const [items, setItems] = useState([]);
   const [matches, setMatches] = useState([]);
   const [error, setError] = useState('');
+  const [busyId, setBusyId] = useState('');
+  const [openingMatchId, setOpeningMatchId] = useState('');
   const navigate = useNavigate();
 
   const fetchItems = async () => {
     try {
-      const res = await api.get('/items/my-items');
+      setError('');
+      const [res, matchRes] = await Promise.all([api.get('/items/my-items'), api.get('/items/my-matches')]);
       setItems(res.data);
-      const matchRes = await api.get('/items/my-matches');
       setMatches(matchRes.data);
     } catch (err) {
-      setError('Failed to fetch items');
+      setError(err.response?.data?.message || 'Failed to fetch reports. Please refresh and try again.');
     }
   };
 
@@ -24,35 +26,53 @@ export default function Dashboard() {
   }, []);
 
   const handleInitiateChat = async (matchId) => {
+    if (openingMatchId) return;
+    setOpeningMatchId(matchId);
     try {
       const res = await api.post('/chat/initiate', { matchId });
       navigate(`/chats/${res.data._id}`);
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to open secure chat.');
+      setError(err.response?.data?.message || 'Failed to open secure chat.');
+    } finally {
+      setOpeningMatchId('');
     }
   };
 
   const handleDelete = async (id) => {
+    if (!window.confirm('Delete this report? This cannot be undone.')) return;
+    setBusyId(id);
     try {
       await api.delete(`/items/${id}`);
       fetchItems();
     } catch (err) {
-      alert('Failed to delete item');
+      setError(err.response?.data?.message || 'Failed to delete item');
+    } finally {
+      setBusyId('');
     }
   };
 
   const handleArchive = async (id) => {
+    setBusyId(id);
     try {
       await api.patch(`/items/${id}/archive`);
       fetchItems();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to archive item');
+    } finally {
+      setBusyId('');
     }
   };
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-6">My Items Dashboard</h2>
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
+        <div>
+          <p className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-1">Private workspace</p>
+          <h2 className="text-2xl sm:text-3xl font-bold">My Dashboard</h2>
+          <p className="text-sm text-gray-600 mt-1">Manage every report you have created, including private found reports.</p>
+        </div>
+        <Link to="/public-dashboard" className="text-sm font-medium underline">Browse Public Dashboard</Link>
+      </div>
       {error && <div className="text-red-600 mb-4">{error}</div>}
 
       {matches.length > 0 && (
@@ -75,10 +95,11 @@ export default function Dashboard() {
                 </div>
                 <button
                   type="button"
+                  disabled={openingMatchId === match.id}
                   onClick={() => handleInitiateChat(match.id)}
-                  className="bg-slate-900 text-white text-xs px-3.5 py-2 font-medium hover:bg-slate-800 transition-colors"
+                  className="bg-slate-900 text-white text-xs px-3.5 py-2 font-medium hover:bg-slate-800 transition-colors disabled:opacity-50"
                 >
-                  Open Secure Chat →
+                  {openingMatchId === match.id ? 'Opening…' : 'Open Secure Chat →'}
                 </button>
               </li>
             ))}
@@ -89,7 +110,8 @@ export default function Dashboard() {
       {items.length === 0 ? (
         <p className="text-gray-600">You haven't reported any items yet.</p>
       ) : (
-        <div className="overflow-x-auto">
+        <>
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse border border-gray-200">
             <thead>
               <tr className="bg-gray-100">
@@ -111,8 +133,8 @@ export default function Dashboard() {
                     <div className="flex flex-wrap gap-x-3 gap-y-1">
                       <Link to={`/items/${item._id}`} className="text-slate-800 font-medium hover:underline">View</Link>
                       <Link to={`/items/${item._id}/edit`} className="text-slate-800 font-medium hover:underline">Edit</Link>
-                      {item.status === 'active' && <button onClick={() => handleArchive(item._id)} className="text-slate-800 font-medium hover:underline">Archive</button>}
-                      <button onClick={() => handleDelete(item._id)} className="text-red-600 font-medium hover:underline">Delete</button>
+                      {item.status === 'active' && <button disabled={busyId === item._id} onClick={() => handleArchive(item._id)} className="text-slate-800 font-medium hover:underline disabled:opacity-50">{busyId === item._id ? 'Working…' : 'Archive'}</button>}
+                      <button disabled={busyId === item._id} onClick={() => handleDelete(item._id)} className="text-red-600 font-medium hover:underline disabled:opacity-50">{busyId === item._id ? 'Working…' : 'Delete'}</button>
                     </div>
                   </td>
                 </tr>
@@ -120,6 +142,21 @@ export default function Dashboard() {
             </tbody>
           </table>
         </div>
+        <div className="grid md:hidden gap-4">
+          {items.map((item) => (
+            <article key={item._id} className="border border-gray-200 bg-white p-4">
+              <div className="flex items-start justify-between gap-3"><h3 className="font-bold text-lg">{item.title}</h3><span className="text-xs capitalize border border-gray-200 px-2 py-1">{item.status}</span></div>
+              <p className="text-sm text-gray-600 mt-2 capitalize">{item.type} · {item.visibility}</p>
+              <div className="flex flex-wrap gap-x-4 gap-y-2 mt-4 text-sm">
+                <Link to={`/items/${item._id}`} className="font-medium underline">View</Link>
+                <Link to={`/items/${item._id}/edit`} className="font-medium underline">Edit</Link>
+                {item.status === 'active' && <button disabled={busyId === item._id} onClick={() => handleArchive(item._id)} className="font-medium underline disabled:opacity-50">{busyId === item._id ? 'Working…' : 'Archive'}</button>}
+                <button disabled={busyId === item._id} onClick={() => handleDelete(item._id)} className="text-red-600 font-medium underline disabled:opacity-50">{busyId === item._id ? 'Working…' : 'Delete'}</button>
+              </div>
+            </article>
+          ))}
+        </div>
+        </>
       )}
     </div>
   );

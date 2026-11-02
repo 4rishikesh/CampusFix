@@ -1,45 +1,27 @@
-import { useState, useEffect } from 'react';
-import api from '../api';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../auth/context';
 
 export default function Home() {
-  const [items, setItems] = useState([]);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    const fetchPublicItems = async () => {
-      try {
-        const res = await api.get('/items/lost');
-        setItems(res.data.items);
-      } catch (err) {
-        setError('Community reports are temporarily unavailable. Please try again shortly.');
-      }
-    };
-    fetchPublicItems();
-  }, []);
+  const { user } = useAuth();
 
   return (
-    <div>
-      <h2 className="text-3xl font-bold mb-2">Community Lost & Found</h2>
-      <p className="text-gray-600 mb-8">Browse publicly listed lost items. Found items are kept private for security.</p>
-
-      {error ? <p className="text-red-700" role="alert">{error}</p> : items.length === 0 ? (
-        <p className="text-gray-500">No public lost items reported at this time.</p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {items.map(item => (
-            <div key={item._id} className="border border-gray-200 p-4 hover:border-gray-300">
-              <h3 className="text-xl font-bold mb-1">{item.title}</h3>
-              <div className="text-sm text-gray-500 mb-2">
-                <span className="font-semibold text-gray-700">{item.category}</span> • Lost at {item.location} • {new Date(item.dateLost).toLocaleDateString()}
-              </div>
-              <p className="text-gray-700 mt-3">{item.description}</p>
-              {item.imageUrl && (
-                <img src={item.imageUrl} alt={item.title} className="mt-4 w-full h-48 object-cover border border-gray-200" />
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+    <div className="max-w-3xl py-8 sm:py-14">
+      <p className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Campus lost & found</p>
+      <h1 className="text-3xl sm:text-4xl font-bold mb-4">Find what matters, safely.</h1>
+      <p className="text-gray-600 text-lg mb-8">{user ? 'Browse approved community reports, or manage your own reports, matches, and secure conversations.' : 'Sign in to access campus reports, manage your items, and use secure conversations.'}</p>
+      <div className="flex flex-col sm:flex-row gap-3">
+        {user ? (
+          <>
+            <Link to="/public-dashboard" className="text-center bg-slate-900 text-white px-5 py-3 font-medium hover:bg-slate-800">Browse Public Dashboard</Link>
+            <Link to="/dashboard" className="text-center border border-gray-300 px-5 py-3 font-medium hover:bg-gray-50">Open My Dashboard</Link>
+          </>
+        ) : (
+          <>
+            <Link to="/login" className="text-center bg-slate-900 text-white px-5 py-3 font-medium hover:bg-slate-800">Sign In</Link>
+            <Link to="/register" className="text-center border border-gray-300 px-5 py-3 font-medium hover:bg-gray-50">Create Account</Link>
+          </>
+        )}
+      </div>
     </div>
   );
 }

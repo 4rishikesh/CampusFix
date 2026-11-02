@@ -4,7 +4,23 @@ const Message = require('../models/Message.model');
 const Match = require('../models/Match.model');
 const Item = require('../models/Item.model');
 const User = require('../models/User.model');
-const { notifyChatMessage, notifyItemStatus, createNotification } = require('../services/notification.service');
+const { notifyChatMessage, notifyItemStatus, createNotification, removeMatchNotifications } = require('../services/notification.service');
+const { scoreItems } = require('../services/matching.service');
+
+function reportsStillMatch(lostItem, foundItem) {
+  if (!lostItem || !foundItem || lostItem.type !== 'lost' || foundItem.type !== 'found') return false;
+  return scoreItems(lostItem, foundItem).isMatch;
+}
+
+async function closeInvalidChat(chat) {
+  if (chat.status !== 'active') return;
+  await Chat.updateOne(
+    { _id: chat._id, status: 'active' },
+    { $set: { status: 'closed', closedReason: 'Closed because the reports no longer meet the item matching criteria.' } }
+  );
+  await Match.updateOne({ _id: chat.match, status: 'candidate' }, { $set: { status: 'dismissed' } });
+  await removeMatchNotifications(chat.match);
+}
 
 function safeParticipant(user) {
   if (!user) return null;
@@ -31,6 +47,10 @@ exports.initiateChat = async (req, res, next) => {
       return res.status(404).json({ message: 'Match not found.' });
     }
 
+    if (match.status !== 'candidate') {
+      return res.status(422).json({ message: 'This potential match is no longer available for a new chat.' });
+    }
+
     const lostItem = match.lostItem;
     const foundItem = match.foundItem;
 
@@ -46,6 +66,11 @@ exports.initiateChat = async (req, res, next) => {
       return res.status(422).json({ message: 'Cannot start chat on items currently held by moderation.' });
     }
 
+    if (!reportsStillMatch(lostItem, foundItem)) {
+      await Match.updateOne({ _id: match._id, status: 'candidate' }, { $set: { status: 'dismissed' } });
+      return res.status(422).json({ message: 'These reports do not describe the same item and cannot be used to start a chat.' });
+    }
+
     const lostUserId = String(lostItem.user);
     const foundUserId = String(foundItem.user);
     const currentUserId = String(req.user.id);
@@ -57,8 +82,8 @@ exports.initiateChat = async (req, res, next) => {
 
     // Check if chat already exists for this match
     let chat = await Chat.findOne({ match: match._id })
-      .populate('lostItem', 'title category location imageUrl status')
-      .populate('foundItem', 'title category location imageUrl status')
+      .populate('lostItem', 'type title description category location imageUrl status')
+      .populate('foundItem', 'type title description category location imageUrl status')
       .populate('participants', 'name email isBlocked');
 
     if (chat) {
@@ -121,13 +146,17 @@ exports.getMyChats = async (req, res, next) => {
 
     const chats = await Chat.find(filter)
       .sort({ updatedAt: -1 })
-      .populate('lostItem', 'title category location imageUrl status')
-      .populate('foundItem', 'title category location imageUrl status')
+      .populate('lostItem', 'type title description category location imageUrl status')
+      .populate('foundItem', 'type title description category location imageUrl status')
       .populate('participants', 'name email isBlocked')
       .populate('lastMessage.sender', 'name')
       .lean();
 
-    return res.json(chats);
+    const invalidChats = chats.filter((chat) => chat.status === 'active' && !reportsStillMatch(chat.lostItem, chat.foundItem));
+    await Promise.all(invalidChats.map(closeInvalidChat));
+    // Invalid legacy matches are deliberately hidden rather than presented as
+    // a conversation between unrelated reports.
+    return res.json(chats.filter((chat) => !invalidChats.some((invalid) => String(invalid._id) === String(chat._id))));
   } catch (error) {
     return next(error);
   }
@@ -140,8 +169,8 @@ exports.getChatById = async (req, res, next) => {
     }
 
     const chat = await Chat.findById(req.params.id)
-      .populate('lostItem', 'title category location dateLost imageUrl status user')
-      .populate('foundItem', 'title category location dateFound imageUrl status user')
+      .populate('lostItem', 'type title description category location dateLost imageUrl status user')
+      .populate('foundItem', 'type title description category location dateFound imageUrl status user')
       .populate('participants', 'name email isBlocked')
       .populate('resolvedBy', 'name');
 
@@ -152,6 +181,11 @@ exports.getChatById = async (req, res, next) => {
     const isParticipant = chat.participants.some((p) => String(p._id || p) === req.user.id);
     if (!isParticipant && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Not authorized to view this chat.' });
+    }
+
+    if (chat.status === 'active' && !reportsStillMatch(chat.lostItem, chat.foundItem)) {
+      await closeInvalidChat(chat);
+      return res.status(410).json({ message: 'This conversation was closed because the reports do not describe the same item.' });
     }
 
     return res.json(chat);

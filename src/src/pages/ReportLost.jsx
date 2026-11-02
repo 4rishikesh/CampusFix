@@ -36,7 +36,7 @@ export default function ReportLost() {
           <label className="block text-sm font-medium mb-1">Title</label>
           <input name="title" type="text" className="w-full border border-gray-300 p-2" onChange={handleChange} required />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">Category</label>
             <input name="category" type="text" className="w-full border border-gray-300 p-2" onChange={handleChange} required />
@@ -46,7 +46,7 @@ export default function ReportLost() {
             <input name="location" type="text" className="w-full border border-gray-300 p-2" onChange={handleChange} required />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">Date Lost</label>
             <input name="dateLost" type="date" className="w-full border border-gray-300 p-2" onChange={handleChange} required />

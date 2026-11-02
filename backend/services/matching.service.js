@@ -4,6 +4,9 @@ const Match = require('../models/Match.model');
 const { visualSimilarity } = require('./imageHash.service');
 
 const STOP_WORDS = new Set(['a', 'an', 'and', 'at', 'for', 'from', 'in', 'is', 'it', 'my', 'of', 'on', 'the', 'to', 'with']);
+// These words describe an item but do not identify what the item is. A shared
+// colour or condition must never be enough to pair unrelated reports.
+const TITLE_MODIFIERS = new Set(['black', 'blue', 'brown', 'green', 'grey', 'gray', 'large', 'new', 'old', 'pink', 'red', 'small', 'white', 'yellow']);
 const CONFIG = Object.freeze({
   weights: { text: 0.55, category: 0.2, location: 0.15, visual: 0.1 },
   threshold: 0.62,
@@ -48,6 +51,19 @@ function fieldSimilarity(first, second) {
   return clampScore((jaroWinkler(first, second) * 0.55) + (tokenSimilarity(first, second) * 0.45));
 }
 
+function identityTokens(value) {
+  return stemmedTokens(value).filter((token) => token.length >= 3 && !TITLE_MODIFIERS.has(token));
+}
+
+function hasCompatibleIdentity(lostTitle, foundTitle) {
+  const lostTokens = identityTokens(lostTitle);
+  const foundTokens = new Set(identityTokens(foundTitle));
+  if (lostTokens.some((token) => foundTokens.has(token))) return true;
+  // This covers concise reports and small spelling errors (for example,
+  // "bttle" versus "bottle") without letting location drive a match.
+  return jaroWinkler(lostTitle, foundTitle) >= 0.82;
+}
+
 function scoreItems(lostItem, foundItem, config = CONFIG) {
   if (lostItem.type !== 'lost' || foundItem.type !== 'found') {
     throw new Error('Matching only supports a lost item paired with a found item.');
@@ -69,9 +85,12 @@ function scoreItems(lostItem, foundItem, config = CONFIG) {
   const threshold = visual.score !== null && visual.score >= config.strongVisualThreshold
     ? config.strongVisualMatchThreshold
     : config.threshold;
+  const identityCompatible = hasCompatibleIdentity(lostItem.title, foundItem.title);
   return {
     scores: { text, category, location, visual: visual.score, imageDistance: visual.distance, combined },
-    isMatch: combined >= threshold,
+    // Location and category narrow down candidates, but cannot create a match
+    // on their own. The report titles must identify the same kind of item.
+    isMatch: identityCompatible && combined >= threshold,
     threshold
   };
 }
@@ -90,12 +109,17 @@ async function runMatchingForItem(itemId, { ItemModel = Item, MatchModel = Match
     if (!outcome.isMatch) {
       // Preserve human-reviewed outcomes, but do not leave stale automatic
       // candidates after a material report edit.
+      const existingMatch = await MatchModel.findOne?.({ ...pair, status: 'candidate' });
       await MatchModel.findOneAndUpdate({ ...pair, status: 'candidate' }, { $set: { status: 'dismissed', scores: outcome.scores } });
+      if (existingMatch) {
+        const { removeMatchNotifications } = require('./notification.service');
+        await removeMatchNotifications(existingMatch._id);
+      }
       continue;
     }
     const match = await MatchModel.findOneAndUpdate(
       pair,
-      { $set: { scores: outcome.scores, algorithmVersion: 'week3-v1' }, $setOnInsert: { status: 'candidate' } },
+      { $set: { scores: outcome.scores, algorithmVersion: 'week3-v2' }, $setOnInsert: { status: 'candidate' } },
       { new: true, upsert: true, runValidators: true }
     );
     results.push(match);
@@ -118,6 +142,6 @@ async function publishPotentialMatches(matches = [], { lostItem, foundItem } = {
 }
 
 module.exports = {
-  CONFIG, fieldSimilarity, jaroWinkler, normalizeText, publishPotentialMatches,
+  CONFIG, fieldSimilarity, hasCompatibleIdentity, identityTokens, jaroWinkler, normalizeText, publishPotentialMatches,
   runMatchingForItem, scoreItems, stemmedTokens, tokenSimilarity
 };

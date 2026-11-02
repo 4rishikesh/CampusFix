@@ -2,7 +2,7 @@ const API_URL = 'http://localhost:5000/api';
 
 async function runTests() {
   try {
-    const randomUser = `testuser_${Date.now()}@example.com`;
+    const randomUser = `testuser_${Date.now()}@student.nitw.ac.in`;
     const password = 'password123';
     
     console.log('Testing Registration...');
@@ -54,7 +54,7 @@ async function runTests() {
     console.log('Backend correctly rejected malicious visibility change.');
 
     console.log('Testing Fetch Public Items...');
-    const publicItems = await fetch(`${API_URL}/items/lost`);
+    const publicItems = await fetch(`${API_URL}/items/lost`, { headers: config.headers });
     const itemsData = await publicItems.json();
     
     // Verify the found item is NOT in the public items

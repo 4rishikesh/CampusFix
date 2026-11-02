@@ -1,8 +1,25 @@
 const mongoose = require('mongoose');
 const Notification = require('../models/Notification.model');
 
+async function removeDuplicateMatchNotifications(userId) {
+  const matchNotifications = await Notification.find({
+    user: userId,
+    type: 'match_found',
+    relatedMatch: { $exists: true, $ne: null }
+  }).sort({ createdAt: -1 }).select('_id relatedMatch').lean();
+  const seenMatches = new Set();
+  const duplicateIds = matchNotifications.flatMap((notification) => {
+    const key = String(notification.relatedMatch);
+    if (seenMatches.has(key)) return [notification._id];
+    seenMatches.add(key);
+    return [];
+  });
+  if (duplicateIds.length) await Notification.deleteMany({ _id: { $in: duplicateIds }, user: userId });
+}
+
 exports.getNotifications = async (req, res, next) => {
   try {
+    await removeDuplicateMatchNotifications(req.user.id);
     const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
     const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit, 10) || 20));
     const filter = { user: req.user.id };

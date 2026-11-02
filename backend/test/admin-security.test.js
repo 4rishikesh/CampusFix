@@ -125,7 +125,8 @@ test('an administrator can block and unblock a user, preserve safe data, and hol
   const held = await Item.findById(item._id);
   assert.equal(held.moderationState, 'held');
   assert.equal((await Match.findOne()).status, 'dismissed');
-  await request(app).get('/api/items/lost').expect(200).expect((response) => assert.equal(response.body.items.length, 0));
+  await request(app).get('/api/items/lost').expect(401);
+  await request(app).get('/api/items/lost').set(authorization(admin)).expect(200).expect((response) => assert.equal(response.body.items.length, 0));
 
   // The JWT was issued before the block and is still cryptographically valid.
   await request(app).post('/api/items/lost').set(authorization(member)).send({

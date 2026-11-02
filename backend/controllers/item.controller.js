@@ -2,9 +2,21 @@ const Item = require('../models/Item.model');
 const Match = require('../models/Match.model');
 const Chat = require('../models/Chat.model');
 const { createPerceptualHash } = require('../services/imageHash.service');
-const { runMatchingForItem } = require('../services/matching.service');
+const { runMatchingForItem, scoreItems } = require('../services/matching.service');
 const { canManageItem, validateItemInput } = require('../services/item.service');
 const { deleteFromCloudinary, uploadToCloudinary } = require('../middleware/upload.middleware');
+const { createNotification, removeMatchNotifications } = require('../services/notification.service');
+
+async function notifyReportActivity({ user, item, title, message }) {
+  await createNotification({
+    user,
+    type: 'item_status',
+    title,
+    message,
+    link: '/dashboard',
+    relatedItem: item?._id
+  });
+}
 
 function sendError(res, error) {
   const status = error.status || (error.code === 'CLOUDINARY_UNAVAILABLE' ? 503 : 500);
@@ -52,6 +64,12 @@ async function createItem(req, res, type) {
     // For the current small deployment this bounded opposite-type query runs
     // after persistence. It is deterministic and can move to a queue later.
     await runMatchingForItem(item._id);
+    await notifyReportActivity({
+      user: req.user.id,
+      item,
+      title: 'Report created',
+      message: `Your ${type} report "${item.title}" was created${item.visibility === 'public' ? ' and is visible on the Public Dashboard' : ' and is visible only in My Dashboard'}.`
+    });
     return res.status(201).json(item);
   } catch (error) {
     return sendError(res, error);
@@ -123,6 +141,12 @@ exports.updateItem = async (req, res) => {
       try { await deleteFromCloudinary(oldPublicId); } catch (error) { console.error('Unable to remove replaced image', error); }
     }
     await runMatchingForItem(item._id);
+    await notifyReportActivity({
+      user: item.user,
+      item,
+      title: 'Report updated',
+      message: `Your ${item.type} report "${item.title}" was updated${item.type === 'lost' && item.visibility === 'public' ? ' and is shown on the Public Dashboard' : ''}.`
+    });
     return res.json(item);
   } catch (error) {
     return sendError(res, error);
@@ -137,6 +161,12 @@ exports.archiveItem = async (req, res) => {
     item.status = 'archived';
     await item.save();
     await dismissMatchesForItem(item._id);
+    await notifyReportActivity({
+      user: item.user,
+      item,
+      title: 'Report archived',
+      message: `Your ${item.type} report "${item.title}" was archived and is no longer active.`
+    });
     return res.json(item);
   } catch (error) {
     return sendError(res, error);
@@ -152,6 +182,12 @@ exports.deleteItem = async (req, res) => {
       try { await deleteFromCloudinary(item.imagePublicId); } catch (error) { console.error('Unable to remove image', error); }
     }
     await dismissMatchesForItem(item._id);
+    await notifyReportActivity({
+      user: item.user,
+      item,
+      title: 'Report deleted',
+      message: `Your ${item.type} report "${item.title}" was deleted.`
+    });
     await item.deleteOne();
     return res.json({ message: 'Item removed.' });
   } catch (error) {
@@ -165,9 +201,14 @@ exports.getMyMatches = async (req, res) => {
     const ownIds = ownItems.map((item) => item._id);
     const matches = await Match.find({ status: 'candidate', $or: [{ lostItem: { $in: ownIds } }, { foundItem: { $in: ownIds } }] })
       .sort({ updatedAt: -1 })
-      .populate('lostItem', 'title category imageUrl user')
-      .populate('foundItem', 'title category imageUrl user');
-    const results = matches.map((match) => {
+      .populate('lostItem', 'type title description category location imageUrl user')
+      .populate('foundItem', 'type title description category location imageUrl user');
+    const invalidMatches = matches.filter((match) => !match.lostItem || !match.foundItem || !scoreItems(match.lostItem, match.foundItem).isMatch);
+    await Promise.all(invalidMatches.map(async (match) => {
+      await Match.updateOne({ _id: match._id, status: 'candidate' }, { $set: { status: 'dismissed' } });
+      await removeMatchNotifications(match._id);
+    }));
+    const results = matches.filter((match) => !invalidMatches.includes(match)).map((match) => {
       const ownItem = String(match.lostItem.user) === req.user.id ? match.lostItem : match.foundItem;
       const otherItem = ownItem === match.lostItem ? match.foundItem : match.lostItem;
       return { id: match._id, ownItem: { id: ownItem._id, title: ownItem.title }, potentialItem: { title: otherItem.title, category: otherItem.category, imageUrl: otherItem.imageUrl }, score: match.scores.combined, updatedAt: match.updatedAt };
